@@ -20,110 +20,171 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 
 export async function gerarPdfAtividade(atividade: AtividadeData): Promise<Blob> {
   const doc = new jsPDF("p", "mm", "a4");
+
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
   const margin = 20;
   const contentWidth = pageWidth - margin * 2;
+
   let y = 20;
 
-  // Header bar
-  doc.setFillColor(0, 90, 156); // SENAI blue
-  doc.rect(0, 0, pageWidth, 40, "F");
+  /* ================================
+     HEADER
+  ================================= */
 
-  // Red accent line
-  doc.setFillColor(200, 30, 30); // SENAI red
-  doc.rect(0, 40, pageWidth, 3, "F");
+  doc.setFillColor(0, 90, 156);
+  doc.rect(0, 0, pageWidth, 35, "F");
 
-  // Title
+  doc.setFillColor(200, 30, 30);
+  doc.rect(0, 35, pageWidth, 4, "F");
+
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(20);
+
   doc.setFont("helvetica", "bold");
-  doc.text("EVIDÊNCIA DE ATIVIDADE", pageWidth / 2, 20, { align: "center" });
-  doc.setFontSize(16);
-  doc.text("SENAI", pageWidth / 2, 32, { align: "center" });
+  doc.setFontSize(20);
 
-  y = 55;
-  doc.setTextColor(30, 30, 30);
+  doc.text("RELATÓRIO DE EVIDÊNCIA", pageWidth / 2, 18, { align: "center" });
 
-  // Helper function for labeled fields
+  doc.setFontSize(14);
+  doc.text("SENAI", pageWidth / 2, 28, { align: "center" });
+
+  y = 50;
+
+  /* ================================
+     CARD CONTAINER
+  ================================= */
+
+  doc.setDrawColor(220, 220, 220);
+  doc.setFillColor(255, 255, 255);
+
+  doc.roundedRect(
+    margin - 5,
+    y - 10,
+    contentWidth + 10,
+    120,
+    4,
+    4,
+    "FD"
+  );
+
+  /* ================================
+     FIELD FUNCTION
+  ================================= */
+
   const addField = (label: string, value: string) => {
-    doc.setFontSize(10);
+    doc.setFontSize(9);
+    doc.setTextColor(120, 120, 120);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(0, 90, 156);
-    doc.text(label, margin, y);
+
+    doc.text(label.toUpperCase(), margin, y);
+
     y += 5;
 
-    doc.setFontSize(11);
+    doc.setFontSize(12);
+    doc.setTextColor(40, 40, 40);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(30, 30, 30);
+
     const lines = doc.splitTextToSize(value, contentWidth);
+
     doc.text(lines, margin, y);
-    y += lines.length * 5 + 6;
+
+    y += lines.length * 6 + 6;
   };
 
-  // Separator line
-  const addSeparator = () => {
-    doc.setDrawColor(200, 200, 200);
-    doc.line(margin, y, pageWidth - margin, y);
-    y += 6;
-  };
+  /* ================================
+     DATA FORMAT
+  ================================= */
 
-  addField("NOME DO RESPONSÁVEL", atividade.nome);
-  addSeparator();
+  const dataFormatada = new Date(
+    atividade.data + "T00:00:00"
+  ).toLocaleDateString("pt-BR");
 
-  addField("DESCRIÇÃO DA ATIVIDADE", atividade.descricao);
-  addSeparator();
+  /* ================================
+     CONTENT
+  ================================= */
 
-  const dataFormatada = new Date(atividade.data + "T00:00:00").toLocaleDateString("pt-BR");
-  addField("DATA", dataFormatada);
-  addSeparator();
+  addField("Responsável", atividade.nome);
 
-  addField("LOCAL", atividade.local);
-  addSeparator();
+  addField("Descrição da atividade", atividade.descricao);
 
-  // Photos section
+  addField("Data", dataFormatada);
+
+  addField("Local", atividade.local);
+
+  /* ================================
+     PHOTOS
+  ================================= */
+
   if (atividade.fotosUrls.length > 0) {
-    doc.setFontSize(10);
+    y += 6;
+
+    doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 90, 156);
-    doc.text("FOTOS / EVIDÊNCIAS", margin, y);
-    y += 8;
 
-    for (const url of atividade.fotosUrls) {
+    doc.text("REGISTROS FOTOGRÁFICOS", margin, y);
+
+    y += 10;
+
+    const imgWidth = (contentWidth - 10) / 2;
+    let x = margin;
+
+    for (let i = 0; i < atividade.fotosUrls.length; i++) {
+      const url = atividade.fotosUrls[i];
+
       try {
         const img = await loadImage(url);
-        const imgWidth = contentWidth * 0.7;
+
         const ratio = img.height / img.width;
         const imgHeight = imgWidth * ratio;
 
-        // Check if image fits on page
-        if (y + imgHeight > 270) {
+        if (y + imgHeight > pageHeight - 30) {
           doc.addPage();
           y = 20;
         }
 
-        const imgX = margin + (contentWidth - imgWidth) / 2;
-        doc.addImage(img, "JPEG", imgX, y, imgWidth, imgHeight);
-        y += imgHeight + 10;
+        doc.addImage(img, "JPEG", x, y, imgWidth, imgHeight);
+
+        if (x === margin) {
+          x = margin + imgWidth + 10;
+        } else {
+          x = margin;
+          y += imgHeight + 10;
+        }
       } catch {
-        doc.setFontSize(9);
         doc.setTextColor(150, 150, 150);
-        doc.text("[Imagem não disponível]", margin, y);
-        y += 8;
+        doc.text("[imagem não disponível]", x, y);
       }
     }
   }
 
-  // Footer
+  /* ================================
+     FOOTER
+  ================================= */
+
   const pageCount = doc.getNumberOfPages();
+
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
+
+    doc.setDrawColor(220, 220, 220);
+    doc.line(margin, pageHeight - 18, pageWidth - margin, pageHeight - 18);
+
     doc.setFontSize(8);
-    doc.setTextColor(150, 150, 150);
+    doc.setTextColor(140, 140, 140);
+
     doc.text(
-      `SENAI - Registro de Evidências | Página ${i} de ${pageCount}`,
-      pageWidth / 2,
-      290,
-      { align: "center" }
+      "SENAI • Registro de Evidências de Atividades",
+      margin,
+      pageHeight - 10
+    );
+
+    doc.text(
+      `Página ${i} de ${pageCount}`,
+      pageWidth - margin,
+      pageHeight - 10,
+      { align: "right" }
     );
   }
 
