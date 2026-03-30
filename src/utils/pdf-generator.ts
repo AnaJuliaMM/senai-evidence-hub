@@ -2,10 +2,13 @@ import jsPDF from "jspdf";
 import {template_base64} from "./template_base64"
 
 interface AtividadeData {
-  nome: string;
-  descricao: string;
+  titulo:string;
+  membros:string;
+  categoria:string;
   data: string;
+  empresa: string | null;
   local: string;
+  descricao: string;
   fotosUrls: string[];
 }
 
@@ -67,11 +70,10 @@ export async function gerarPdfAtividade(
       // Atualizar a margem 
       marginTop += (valueLines.length * lineHeight);
     };
-
-  // titulo
-  // tipo 
-  formatFormsFields("Responsável", atividade.nome);
-  // empresa parceira (se tiver)
+  formatFormsFields("Título", atividade.titulo);
+  formatFormsFields("Categoria", atividade.categoria);
+  formatFormsFields("Participantes", atividade.membros);
+  formatFormsFields("Empresa Parceira", atividade.membros?? "-");
   formatFormsFields("Local", atividade.local);
   formatFormsFields(
     "Data", 
