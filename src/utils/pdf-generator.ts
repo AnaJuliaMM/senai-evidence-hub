@@ -24,8 +24,7 @@ export async function gerarPdfAtividade(
 ): Promise<Blob> {
   const doc = new jsPDF("p", "mm", "a4");
 
-
-  // Parametros de configuracao ---------------------
+  // Parametros de configuracao das bordas ---------------------
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const marginLeft = 20;
@@ -33,23 +32,20 @@ export async function gerarPdfAtividade(
   const lineHeight = 6
   let marginTop = 40;
 
-
   // Posicionar a mascara oficial ---------------------
   doc.addImage(template_base64, "PNG", 0, 0, 210, 297);
-
 
   // Formatar titulo ---------------------
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
   doc.setTextColor(0, 0, 0); 
   doc.text(
-    "RELATÓRIO DE EVIDÊNCIA", 
+    "RELATÓRIO DE ATIVIDADES", 
     pageWidth / 2, 
     marginTop, 
     { align: "center" }
   );
   marginTop += lineHeight*2;
-
 
   // Formatar campos do formulario ---------------------
   const formatFormsFields = (label: string, value: string) => {
@@ -114,35 +110,34 @@ export async function gerarPdfAtividade(
     );
     marginTop += lineHeight*2
 
-    // const imgWidth = (contentWidth - 10) / 2;
-    // let x = marginLeft;
-    // for (let i = 0; i < atividade.fotosUrls.length; i++) {
-    //   const url = atividade.fotosUrls[i];
+    const imgWidth = contentWidth;
+    for (let i = 0; i < atividade.fotosUrls.length; i++) {
+      const url = atividade.fotosUrls[i];
 
-    //   try {
-    //     const img = await loadImage(url);
+      try {
+        const img = await loadImage(url);
+        const ratio = img.height / img.width;
+        const imgHeight = imgWidth * ratio;
 
-    //     const ratio = img.height / img.width;
-    //     const imgHeight = imgWidth * ratio;
+        if (marginTop + imgHeight > pageHeight - 30) {
+          doc.addPage();
+          doc.addImage(template_base64, "PNG", 0, 0, 210, 297);
+          marginTop = 40;
+        }
 
-    //     if (y + imgHeight > pageHeight - 30) {
-    //       doc.addPage();
-    //       y = 20;
-    //     }
+        doc.addImage(
+          img, "JPEG", 
+          marginLeft, marginTop, 
+          imgWidth, imgHeight
+        );
+        marginTop += imgHeight + 10
 
-    //     doc.addImage(img, "JPEG", x, y, imgWidth, imgHeight);
-
-    //     if (x === margin) {
-    //       x = margin + imgWidth + 10;
-    //     } else {
-    //       x = margin;
-    //       y += imgHeight + 10;
-    //     }
-    //   } catch {
-    //     doc.setTextColor(150, 150, 150);
-    //     doc.text("[imagem não disponível]", x, y);
-    //   }
-    // }
+      } catch {
+        doc.setTextColor(150, 150, 150);
+        doc.text("[imagem não disponível]", marginLeft, marginTop);
+        marginTop += 10;
+      }
+    }
     
   }
 
