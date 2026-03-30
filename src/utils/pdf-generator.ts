@@ -73,7 +73,7 @@ export async function gerarPdfAtividade(
   formatFormsFields("Título", atividade.titulo);
   formatFormsFields("Categoria", atividade.categoria);
   formatFormsFields("Participantes", atividade.membros);
-  formatFormsFields("Empresa Parceira", atividade.membros?? "-");
+  formatFormsFields("Empresa Parceira", atividade.empresa?? "-");
   formatFormsFields("Local", atividade.local);
   formatFormsFields(
     "Data", 
@@ -101,7 +101,7 @@ export async function gerarPdfAtividade(
 
   // Formatar secao evidencias ---------------------
   if (atividade.fotosUrls.length > 0) {
-    marginTop += lineHeight*2
+    marginTop += lineHeight * descriptionLines.length;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
     doc.text(
@@ -110,7 +110,7 @@ export async function gerarPdfAtividade(
       marginTop, 
       { align: "center" }
     );
-    marginTop += lineHeight*2
+    marginTop += lineHeight
 
     const imgWidth = contentWidth;
     for (let i = 0; i < atividade.fotosUrls.length; i++) {
