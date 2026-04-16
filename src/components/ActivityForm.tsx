@@ -43,6 +43,24 @@ export function ActivityForm({ onSuccess }: ActivityFormProps) {
     setPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const getLocalPreviewUrls = async () => {
+    if (previews.length === files.length) {
+      return previews;
+    }
+
+    return Promise.all(
+      files.map(
+        (file) =>
+          new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          })
+      )
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!titulo || !membros || !descricao || !data || !local) {
@@ -54,8 +72,13 @@ export function ActivityForm({ onSuccess }: ActivityFormProps) {
     }
 
     setLoading(true);
+    let pdfUrl: string | null = null;
+    let localFallback = false;
+
+    const localFotosUrls = await getLocalPreviewUrls();
+
     try {
-      // Upload images
+      // Upload images to Supabase storage.
       const fotosUrls: string[] = [];
       for (const file of files) {
         const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}-${file.name}`;
@@ -63,7 +86,9 @@ export function ActivityForm({ onSuccess }: ActivityFormProps) {
           .from("evidencias")
           .upload(fileName, file);
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          throw uploadError;
+        }
 
         const { data: urlData } = supabase.storage
           .from("evidencias")
@@ -72,16 +97,18 @@ export function ActivityForm({ onSuccess }: ActivityFormProps) {
         fotosUrls.push(urlData.publicUrl);
       }
 
-      // Insert record
+      // Insert record in database.
       const { data: record, error: insertError } = await supabase
         .from("atividades")
         .insert({ titulo, membros, categoria, data, empresa, local, descricao, fotos: fotosUrls })
         .select()
         .single();
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        throw insertError;
+      }
 
-      // Generate PDF
+      // Generate and upload PDF.
       const pdfBlob = await gerarPdfAtividade({
         titulo,
         membros,
@@ -98,28 +125,57 @@ export function ActivityForm({ onSuccess }: ActivityFormProps) {
         .from("relatorios")
         .upload(pdfFileName, pdfBlob, { contentType: "application/pdf" });
 
-      if (pdfUploadError) throw pdfUploadError;
+      if (pdfUploadError) {
+        throw pdfUploadError;
+      }
 
       const { data: pdfUrlData } = supabase.storage
         .from("relatorios")
         .getPublicUrl(pdfFileName);
 
-      // Update record with PDF URL
       await supabase
         .from("atividades")
         .update({ pdf_url: pdfUrlData.publicUrl })
         .eq("id", record.id);
 
-      onSuccess(pdfUrlData.publicUrl);
+      pdfUrl = pdfUrlData.publicUrl;
     } catch (error: any) {
-      console.error(error);
-      toast({
-        title: "Erro ao registrar atividade",
-        description: error.message || "Tente novamente.",
-        variant: "destructive",
-      });
+      console.error("Supabase fallback:", error);
+      localFallback = true;
+
+      try {
+        const pdfBlob = await gerarPdfAtividade({
+          titulo,
+          membros,
+          categoria,
+          data,
+          empresa,
+          local,
+          descricao,
+          fotosUrls: localFotosUrls,
+        });
+        pdfUrl = URL.createObjectURL(pdfBlob);
+      } catch (fallbackError: any) {
+        console.error(fallbackError);
+        toast({
+          title: "Erro ao gerar PDF",
+          description: fallbackError.message || "Tente novamente.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
+    }
+
+    if (pdfUrl) {
+      if (localFallback) {
+        toast({
+          title: "Relatório gerado localmente",
+          description: "Não foi possível salvar no banco, mas o PDF foi criado com os dados do formulário.",
+          variant: "default",
+        });
+      }
+      onSuccess(pdfUrl);
     }
   };
 
