@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Upload, X, FileText, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { gerarPdfAtividade } from "@/utils/pdf-generator";
+import { gerarPdfAtividade } from "@/utils/pdf_generator";
 import { useToast } from "@/hooks/use-toast";
 
 interface ActivityFormProps {
